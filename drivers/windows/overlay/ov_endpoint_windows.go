@@ -124,6 +124,7 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 		VirtualNetwork:    n.hnsId,
 		IPAddress:         ep.addr.IP,
 		EnableInternalDNS: true,
+		AssignGateway:     false,
 	}
 
 	if ep.mac != nil {
