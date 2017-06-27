@@ -113,7 +113,8 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 		return fmt.Errorf("create endpoint was not passed interface IP address")
 	}
 
-	if s := n.getSubnetforIP(ep.addr); s == nil {
+	s := n.getSubnetforIP(ep.addr)
+	if s == nil {
 		return fmt.Errorf("no matching subnet for IP %q in network %q\n", ep.addr, nid)
 	}
 
@@ -124,6 +125,7 @@ func (d *driver) CreateEndpoint(nid, eid string, ifInfo driverapi.InterfaceInfo,
 		VirtualNetwork:    n.hnsId,
 		IPAddress:         ep.addr.IP,
 		EnableInternalDNS: true,
+		GatewayAddress:    s.gwIP.String(),
 	}
 
 	if ep.mac != nil {
