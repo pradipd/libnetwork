@@ -3,11 +3,9 @@ package overlay
 import (
 	"fmt"
 	"net"
-	"sync"
 
 	"encoding/json"
 
-	"github.com/docker/docker/pkg/system"
 	"github.com/docker/libnetwork/types"
 	"github.com/sirupsen/logrus"
 
@@ -15,13 +13,6 @@ import (
 )
 
 const ovPeerTable = "overlay_peer_table"
-
-var (
-	//Server 2016 (RS1) does not support concurrent add/delete of remote endpoints.  Therefore, we need
-	//to use this mutex and serialize the add/delete of remote endpoints on RS1.
-	peerMu       sync.Mutex
-	windowsBuild = system.GetOSVersion().Build
-)
 
 func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
 	peerMac net.HardwareAddr, vtep net.IP, updateDb bool) error {
@@ -75,15 +66,8 @@ func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
 			return err
 		}
 
-		if windowsBuild == 14393 {
-			peerMu.Lock()
-		}
 		n.removeEndpointWithAddress(addr)
-		hnsresponse, err := hcsshim.HNSEndpointRequest("POST", "", string(configurationb))
-		if windowsBuild == 14393 {
-			peerMu.Unlock()
-		}
-
+		hnsresponse, err := endpointRequest("POST", "", string(configurationb))
 		if err != nil {
 			return err
 		}
@@ -123,13 +107,7 @@ func (d *driver) peerDelete(nid, eid string, peerIP net.IP, peerIPMask net.IPMas
 	}
 
 	if updateDb {
-		if windowsBuild == 14393 {
-			peerMu.Lock()
-		}
-		_, err := hcsshim.HNSEndpointRequest("DELETE", ep.profileID, "")
-		if windowsBuild == 14393 {
-			peerMu.Unlock()
-		}
+		_, err := endpointRequest("DELETE", ep.profileID, "")
 		if err != nil {
 			return err
 		}
