@@ -17,7 +17,10 @@ import (
 const ovPeerTable = "overlay_peer_table"
 
 var (
-	peerMu sync.Mutex
+	//Server 2016 (RS1) does not support concurrent add/delete of remote endpoints.  Therefore, we need
+	//to use this mutex and serialize the add/delete of remote endpoints on RS1.
+	peerMu       sync.Mutex
+	windowsBuild = system.GetOSVersion().Build
 )
 
 func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
@@ -72,12 +75,12 @@ func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
 			return err
 		}
 
-		if system.GetOSVersion().Build == 14393 {
+		if windowsBuild == 14393 {
 			peerMu.Lock()
 		}
 		n.removeEndpointWithAddress(addr)
 		hnsresponse, err := hcsshim.HNSEndpointRequest("POST", "", string(configurationb))
-		if system.GetOSVersion().Build == 14393 {
+		if windowsBuild == 14393 {
 			peerMu.Unlock()
 		}
 
@@ -120,11 +123,11 @@ func (d *driver) peerDelete(nid, eid string, peerIP net.IP, peerIPMask net.IPMas
 	}
 
 	if updateDb {
-		if system.GetOSVersion().Build == 14393 {
+		if windowsBuild == 14393 {
 			peerMu.Lock()
 		}
 		_, err := hcsshim.HNSEndpointRequest("DELETE", ep.profileID, "")
-		if system.GetOSVersion().Build == 14393 {
+		if windowsBuild == 14393 {
 			peerMu.Unlock()
 		}
 		if err != nil {
