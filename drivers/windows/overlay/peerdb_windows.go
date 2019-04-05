@@ -3,9 +3,11 @@ package overlay
 import (
 	"fmt"
 	"net"
+	"sync"
 
 	"encoding/json"
 
+	"github.com/docker/docker/pkg/system"
 	"github.com/docker/libnetwork/types"
 	"github.com/sirupsen/logrus"
 
@@ -13,6 +15,10 @@ import (
 )
 
 const ovPeerTable = "overlay_peer_table"
+
+var (
+	peerMu sync.Mutex
+)
 
 func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
 	peerMac net.HardwareAddr, vtep net.IP, updateDb bool) error {
@@ -66,9 +72,15 @@ func (d *driver) peerAdd(nid, eid string, peerIP net.IP, peerIPMask net.IPMask,
 			return err
 		}
 
+		if system.GetOSVersion().Build == 14393 {
+			peerMu.Lock()
+		}
 		n.removeEndpointWithAddress(addr)
-
 		hnsresponse, err := hcsshim.HNSEndpointRequest("POST", "", string(configurationb))
+		if system.GetOSVersion().Build == 14393 {
+			peerMu.Unlock()
+		}
+
 		if err != nil {
 			return err
 		}
@@ -108,7 +120,13 @@ func (d *driver) peerDelete(nid, eid string, peerIP net.IP, peerIPMask net.IPMas
 	}
 
 	if updateDb {
+		if system.GetOSVersion().Build == 14393 {
+			peerMu.Lock()
+		}
 		_, err := hcsshim.HNSEndpointRequest("DELETE", ep.profileID, "")
+		if system.GetOSVersion().Build == 14393 {
+			peerMu.Unlock()
+		}
 		if err != nil {
 			return err
 		}
